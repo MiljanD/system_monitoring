@@ -1,6 +1,5 @@
 import threading
-import psutil
-import re
+import display_functions
 from display_functions import display_usage, display_processes, listen_for_input
 import time
 import os
@@ -18,7 +17,8 @@ process_thread.start()
 
 
 
-while True:
+while display_functions.running:
+
     time.sleep(1)
 
 
