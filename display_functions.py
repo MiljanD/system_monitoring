@@ -1,3 +1,9 @@
+"""
+Terminal-based system monitor that displays CPU, memory, and process usage.
+Supports sorting and clean exit via user input.
+"""
+
+# Imports
 import threading
 import time
 import psutil
@@ -12,26 +18,36 @@ USAGE_ROW = 7
 PROCESS_ROW = 12
 INPUT_ROW = 9
 
-# deljene globalne promenjiva
+# Shared global variables for sorting and program control
 sort_key = "cpu_percent"
 sort_key_lock = threading.Lock()
-display_paused = False
-display_lock = threading.Lock()
+# shared global variable used in all functions to keep them running and also for exiting the program
 running = True
 
 
+# function that is responsible to present visual representation of resources
 def display_usage(bars=20):
+    """
+    Continuously displays CPU and memory usage as visual bars.
+
+    :param bars: Number of segments in the usage bar (default is 20)
+
+    """
     global running
     while running:
+        # resource collection
         cpu_usage = psutil.cpu_percent()
         mem_data = psutil.virtual_memory()
 
+        # preparation for visual representation
         cpu_usage_percentage = cpu_usage / 100
         cpu_bar = "█" * int(cpu_usage_percentage * bars) + "-" * (bars - int(cpu_usage_percentage * bars))
 
         memory_usage_percentage = mem_data.percent / 100
         memory_bar = "█" * int(memory_usage_percentage * bars) + "-" * (bars - int(memory_usage_percentage * bars))
         available_memory = ((mem_data.available / BYTES_IN_GB) / TOTAL_MEMORY) * 100
+
+        # display of visual representation
         print(f"\033[{USAGE_ROW};1H", end="")
         print(f"{'CPU Usage:'.ljust(LABEL_WIDTH)} |{cpu_bar}| {str(f'{cpu_usage:.2f}%').rjust(6)}  "
               f"{'Memory Usage:'.ljust(LABEL_WIDTH)} |{memory_bar}| {str(f'{memory_usage_percentage *100 :.2f}%').rjust(6)}  "
@@ -41,14 +57,25 @@ def display_usage(bars=20):
         time.sleep(1)
 
 
+# Displays a list of active processes, sorted by the selected key. Default limit is 5.
 def display_processes(limit=5):
+    """
+    Continuously displays active processes sorted by sort key.
+
+    :param limit: Number processes to display (default is 5)
+
+    """
     global running
     while running:
+        # shown processes will refresh in every 5 seconds
+        # depending on sort key display will be different
         time.sleep(5)
         global sort_key
-
+        # with sort_key_lock variable we are locking the sort_key for actions from other functions
         with sort_key_lock:
             current_key = sort_key
+            # with the first for loop over psutil.process_iter object, the initial value is set up
+            # in second one data collection is done
             processes = list(psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent"]))
             for proces in processes:
                 proces.cpu_percent(interval=0.0)
@@ -62,8 +89,10 @@ def display_processes(limit=5):
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     continue
 
+            # sorting of collected data based on sort key
             sorted_processes = sorted(list_of_processes, key=lambda p:p[current_key], reverse=True)
 
+            # display of process info
             for i in range(limit + 3):
                 print(f"\033[{PROCESS_ROW + i};1H\033[K", end="")
 
@@ -104,13 +133,18 @@ def display_processes(limit=5):
         print(f"\033[{INPUT_ROW + 1 };1H", end="", flush=True)
 
 
+# Handles user input for sorting key selection and program exit
 def listen_for_input():
+    """
+    Continuously listens for user input to change sorting or exit the program.
+
+    """
     global sort_key
     global running
 
     while running:
         print(f"\033[{INPUT_ROW};1H\033[K", end="")
-        sys.stdout.write(f"\033[{INPUT_ROW};1H\033[KEnter sorting key (for CPU enter 1/for RAM enter 2/for Name enter 3): ")
+        sys.stdout.write(f"\033[{INPUT_ROW};1H\033[KEnter sorting key (for CPU enter 1/for RAM enter 2/for Name enter 3/for exit enter x): ")
         sys.stdout.flush()
         user_input = sys.stdin.readline().strip().lower()
 
@@ -136,9 +170,3 @@ def listen_for_input():
 
         print(f"\033[{INPUT_ROW};1H\033[K", end="")
         print(f"\033[{INPUT_ROW + 1};1H\033[K", end="")
-
-
-
-
-
-
